@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
-import { User as UserIcon, Save, CheckCircle2, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert } from 'lucide-react';
+import { User as UserIcon, Save, CheckCircle2, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert, Upload, Camera } from 'lucide-react';
 
 export const Profile: React.FC = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -14,6 +14,7 @@ export const Profile: React.FC = () => {
   const [timezone, setTimezone] = useState('UTC');
 
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   // Account settings states
@@ -38,6 +39,39 @@ export const Profile: React.FC = () => {
       setEmail(user.email);
     }
   }, [profile, user]);
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setMessage(null);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64Data = event.target?.result as string;
+      try {
+        const res = await api.post('/counselors/me/upload', {
+          fileName: file.name,
+          mimeType: file.type,
+          base64Data,
+          folder: 'avatars',
+        });
+
+        const s3Url = res.data?.data?.url || res.data?.url;
+        if (s3Url) {
+          setAvatarUrl(s3Url);
+          setMessage('Profile image uploaded to AWS S3 successfully!');
+        }
+      } catch (err: any) {
+        console.error('Avatar upload error:', err);
+        setMessage(err.response?.data?.error || 'Failed to upload image to AWS S3.');
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,15 +228,65 @@ export const Profile: React.FC = () => {
             </select>
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Avatar / Profile Picture URL</label>
-            <input
-              type="url"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
+          <div className="md:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+            <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center space-x-2">
+              <Camera className="w-4 h-4 text-indigo-600" />
+              <span>Profile Picture & Avatar (AWS S3)</span>
+            </label>
+
+            <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-5">
+              <div className="relative group w-20 h-20 rounded-full border-2 border-indigo-200 overflow-hidden bg-indigo-50 flex items-center justify-center shrink-0 shadow-inner">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Counselor Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <UserIcon className="w-8 h-8 text-indigo-400" />
+                )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
+                    <span className="text-[10px] text-white font-bold animate-pulse">Uploading...</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-2 text-center sm:text-left">
+                <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                  <label
+                    htmlFor="counselor-avatar-upload"
+                    className="cursor-pointer px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs rounded-xl shadow-sm transition-all flex items-center space-x-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingAvatar ? 'Uploading Image...' : 'Upload Photo'}</span>
+                  </label>
+                  <input
+                    id="counselor-avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
+                    className="hidden"
+                  />
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarUrl('')}
+                      className="px-3 py-2 text-slate-500 hover:text-red-600 font-medium text-xs rounded-xl border border-slate-200 hover:border-red-200 transition-all"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Upload JPG, PNG or WEBP (Max 5MB). Image is uploaded directly to AWS S3 bucket (<code className="text-indigo-600">wellmindly-assets</code>).
+                </p>
+                {avatarUrl && (
+                  <input
+                    type="text"
+                    readOnly
+                    value={avatarUrl}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-200 text-[11px] text-slate-500 rounded-lg focus:outline-none"
+                  />
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="md:col-span-2">
