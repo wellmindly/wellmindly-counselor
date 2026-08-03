@@ -231,7 +231,7 @@ export const Profile: React.FC = () => {
           <div className="md:col-span-2 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
             <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center space-x-2">
               <Camera className="w-4 h-4 text-indigo-600" />
-              <span>Profile Picture & Avatar (AWS S3)</span>
+              <span>Profile Picture & Avatar</span>
             </label>
 
             <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-5">
@@ -275,7 +275,7 @@ export const Profile: React.FC = () => {
                   )}
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Upload JPG, PNG or WEBP (Max 5MB). Image is uploaded directly to AWS S3 bucket (<code className="text-indigo-600">wellmindly-assets</code>).
+                  Upload JPG, PNG or WEBP (Max 5MB). Professional high-resolution portrait recommended.
                 </p>
                 {avatarUrl && (
                   <input
