@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Video, FileText, Mail, Star, Clock, Search } from 'lucide-react';
+import { Video, FileText, Mail, Star, Clock, Search, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 export const Sessions: React.FC = () => {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -24,6 +24,10 @@ export const Sessions: React.FC = () => {
   const [feedbackSummary, setFeedbackSummary] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
+  // Success and Error banner state
+  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const [bannerError, setBannerError] = useState<string | null>(null);
+
   const fetchSessions = () => {
     setLoading(true);
     api
@@ -43,6 +47,8 @@ export const Sessions: React.FC = () => {
   const handleSaveNote = async () => {
     if (!activeSessionNote) return;
     setSavingNote(true);
+    setBannerMessage(null);
+    setBannerError(null);
     try {
       await api.post(`/counselors/me/sessions/${activeSessionNote.id}/notes`, {
         title: noteTitle,
@@ -50,9 +56,10 @@ export const Sessions: React.FC = () => {
         isPrivate,
       });
       setActiveSessionNote(null);
+      setBannerMessage('Session note saved successfully!');
       fetchSessions();
-    } catch (err) {
-      alert('Failed to save note');
+    } catch (err: any) {
+      setBannerError(err.response?.data?.error || 'Failed to save session note.');
     } finally {
       setSavingNote(false);
     }
@@ -61,15 +68,17 @@ export const Sessions: React.FC = () => {
   const handleSendMail = async () => {
     if (!activeMailStudent) return;
     setSendingMail(true);
+    setBannerMessage(null);
+    setBannerError(null);
     try {
       await api.post(`/counselors/me/students/${activeMailStudent.student.id}/send-email`, {
         subject: mailSubject,
         message: mailMessage,
       });
-      alert('Email queued successfully!');
+      setBannerMessage(`Direct email queued for ${activeMailStudent.student.firstName}!`);
       setActiveMailStudent(null);
-    } catch (err) {
-      alert('Failed to send email');
+    } catch (err: any) {
+      setBannerError(err.response?.data?.error || 'Failed to send direct email.');
     } finally {
       setSendingMail(false);
     }
@@ -78,15 +87,18 @@ export const Sessions: React.FC = () => {
   const handleSubmitFeedback = async () => {
     if (!activeFeedbackSession) return;
     setSubmittingFeedback(true);
+    setBannerMessage(null);
+    setBannerError(null);
     try {
       await api.post(`/counselors/me/sessions/${activeFeedbackSession.id}/feedback`, {
         rating: feedbackRating,
         summaryNote: feedbackSummary,
       });
       setActiveFeedbackSession(null);
+      setBannerMessage('Post-session evaluation submitted!');
       fetchSessions();
-    } catch (err) {
-      alert('Failed to submit feedback');
+    } catch (err: any) {
+      setBannerError(err.response?.data?.error || 'Failed to submit post-session evaluation.');
     } finally {
       setSubmittingFeedback(false);
     }
@@ -115,6 +127,30 @@ export const Sessions: React.FC = () => {
           />
         </div>
       </div>
+
+      {bannerMessage && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <span>{bannerMessage}</span>
+          </div>
+          <button onClick={() => setBannerMessage(null)} className="text-emerald-600 hover:text-emerald-800">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {bannerError && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <span>{bannerError}</span>
+          </div>
+          <button onClick={() => setBannerError(null)} className="text-rose-500 hover:text-rose-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="p-12 text-center text-slate-500 text-sm">Loading sessions...</div>

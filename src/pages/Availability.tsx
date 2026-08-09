@@ -8,6 +8,8 @@ import {
   Unlock,
   Clock,
   Trash2,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 interface Exception {
@@ -25,6 +27,7 @@ export const Availability: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchExceptions = async () => {
     try {
@@ -59,6 +62,14 @@ export const Availability: React.FC = () => {
   // Format selected date YYYY-MM-DD
   const dateStr = selectedDate.toISOString().split('T')[0];
 
+  const getExceptionsForDate = (date: Date) => {
+    const dStr = date.toISOString().split('T')[0];
+    return exceptions.filter((ex) => {
+      const exStart = new Date(ex.startDate).toISOString().split('T')[0];
+      return exStart === dStr;
+    });
+  };
+
   // Helper to check if an hour slot is blocked on selected date
   const isHourBlocked = (hour: number) => {
     const slotStart = new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), hour, 0));
@@ -83,6 +94,7 @@ export const Availability: React.FC = () => {
   };
 
   const toggleBlockHour = async (hour: number) => {
+    setError(null);
     const existing = findExceptionForHour(hour);
     setSaving(true);
 
@@ -92,7 +104,7 @@ export const Availability: React.FC = () => {
         await api.delete(`/counselors/me/exceptions/${existing.id}`);
         await fetchExceptions();
       } catch (err) {
-        alert('Failed to unblock hour');
+        setError('Failed to unblock hour. Please try again.');
       } finally {
         setSaving(false);
       }
@@ -109,7 +121,7 @@ export const Availability: React.FC = () => {
         });
         await fetchExceptions();
       } catch (err) {
-        alert('Failed to block hour');
+        setError('Failed to block hour. Please try again.');
       } finally {
         setSaving(false);
       }
@@ -117,6 +129,7 @@ export const Availability: React.FC = () => {
   };
 
   const blockFullDay = async () => {
+    setError(null);
     setSaving(true);
     const startDate = new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0)).toISOString();
     const endDate = new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59)).toISOString();
@@ -130,19 +143,20 @@ export const Availability: React.FC = () => {
       });
       await fetchExceptions();
     } catch (err) {
-      alert('Failed to block day');
+      setError('Failed to block full day. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const removeException = async (id: string) => {
+    setError(null);
     setSaving(true);
     try {
       await api.delete(`/counselors/me/exceptions/${id}`);
       await fetchExceptions();
     } catch (err) {
-      alert('Failed to remove blockout');
+      setError('Failed to remove blockout. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -161,6 +175,18 @@ export const Availability: React.FC = () => {
           Default working hours are 8:00 AM – 6:00 PM (1-hour sessions). Select any date in the calendar below to block or unblock specific hours.
         </p>
       </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError(null)} className="text-rose-500 hover:text-rose-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Month Calendar Card */}
