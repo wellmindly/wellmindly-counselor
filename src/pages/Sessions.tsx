@@ -164,6 +164,15 @@ export const Sessions: React.FC = () => {
             const start = new Date(session.startTime);
             const isConfirmed = session.status === 'CONFIRMED';
             const isCompleted = session.status === 'COMPLETED';
+            // A room is only worth opening for a session that is still going to
+            // happen. The button used to render for every card, so a counselor
+            // could "join" a session that completed last week, or was a no-show,
+            // or was cancelled. `meetingLink` is non-nullable in the schema, but
+            // it is still checked so a missing one degrades to a disabled label
+            // rather than an anchor that reloads the page.
+            const canJoin =
+              Boolean(session.meetingLink) &&
+              ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(session.status);
 
             return (
               <div key={session.id} className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm flex flex-col justify-between space-y-6">
@@ -211,15 +220,25 @@ export const Sessions: React.FC = () => {
 
                 {/* Actions Toolbar */}
                 <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
-                  <a
-                    href={session.meetingLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-sm flex items-center justify-center space-x-1.5"
-                  >
-                    <Video className="w-3.5 h-3.5" />
-                    <span>Join Meeting</span>
-                  </a>
+                  {canJoin ? (
+                    <a
+                      href={session.meetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-sm flex items-center justify-center space-x-1.5"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>Join Meeting</span>
+                    </a>
+                  ) : (
+                    <span
+                      className="px-3 py-2 bg-slate-50 text-slate-400 font-semibold text-xs rounded-xl border border-slate-200 flex items-center justify-center space-x-1.5"
+                      title="This session is no longer joinable"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>{session.meetingLink ? 'Call Ended' : 'No Meeting Link'}</span>
+                    </span>
+                  )}
 
                   <button
                     onClick={() => {
