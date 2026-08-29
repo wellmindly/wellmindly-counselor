@@ -59,16 +59,13 @@ export const Availability: React.FC = () => {
     setCurrentMonth(new Date(year, month + 1, 1));
   };
 
-  // Format selected date YYYY-MM-DD
-  const dateStr = selectedDate.toISOString().split('T')[0];
-
-  const getExceptionsForDate = (date: Date) => {
-    const dStr = date.toISOString().split('T')[0];
-    return exceptions.filter((ex) => {
-      const exStart = new Date(ex.startDate).toISOString().split('T')[0];
-      return exStart === dStr;
-    });
-  };
+  // The calendar treats the date you clicked as a UTC calendar date (every hour
+  // on this page is a UTC hour), so build the label from the local Y/M/D of the
+  // selection. toISOString() here would shift the label a day backwards for
+  // anyone east of UTC, because selectedDate is local midnight.
+  const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(
+    selectedDate.getDate()
+  ).padStart(2, '0')}`;
 
   // Helper to check if an hour slot is blocked on selected date
   const isHourBlocked = (hour: number) => {

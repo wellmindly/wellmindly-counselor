@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api';
+import { api, apiErrorMessage } from '../api';
 import { Video, FileText, Mail, Star, Clock, Search, AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 export const Sessions: React.FC = () => {
@@ -59,7 +59,7 @@ export const Sessions: React.FC = () => {
       setBannerMessage('Session note saved successfully!');
       fetchSessions();
     } catch (err: any) {
-      setBannerError(err.response?.data?.error || 'Failed to save session note.');
+      setBannerError(apiErrorMessage(err, 'Failed to save session note.'));
     } finally {
       setSavingNote(false);
     }
@@ -78,7 +78,7 @@ export const Sessions: React.FC = () => {
       setBannerMessage(`Direct email queued for ${activeMailStudent.student.firstName}!`);
       setActiveMailStudent(null);
     } catch (err: any) {
-      setBannerError(err.response?.data?.error || 'Failed to send direct email.');
+      setBannerError(apiErrorMessage(err, 'Failed to send direct email.'));
     } finally {
       setSendingMail(false);
     }
@@ -98,7 +98,7 @@ export const Sessions: React.FC = () => {
       setBannerMessage('Post-session evaluation submitted!');
       fetchSessions();
     } catch (err: any) {
-      setBannerError(err.response?.data?.error || 'Failed to submit post-session evaluation.');
+      setBannerError(apiErrorMessage(err, 'Failed to submit post-session evaluation.'));
     } finally {
       setSubmittingFeedback(false);
     }

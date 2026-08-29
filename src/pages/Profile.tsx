@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api';
+import { api, apiErrorMessage } from '../api';
 import { User as UserIcon, Save, CheckCircle2, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert, Upload, Camera } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -65,7 +65,7 @@ export const Profile: React.FC = () => {
         }
       } catch (err: any) {
         console.error('Avatar upload error:', err);
-        setMessage(err.response?.data?.error || 'Failed to upload image to AWS S3.');
+        setMessage(apiErrorMessage(err, 'Failed to upload image to AWS S3.'));
       } finally {
         setUploadingAvatar(false);
       }
@@ -93,7 +93,7 @@ export const Profile: React.FC = () => {
         refreshProfile();
       }
     } catch (err: any) {
-      setMessage(err.response?.data?.error || 'Failed to update profile.');
+      setMessage(apiErrorMessage(err, 'Failed to update profile.'));
     } finally {
       setSaving(false);
     }
@@ -137,7 +137,7 @@ export const Profile: React.FC = () => {
         refreshProfile();
       }
     } catch (err: any) {
-      setAccountError(err.response?.data?.error || 'Failed to update account details.');
+      setAccountError(apiErrorMessage(err, 'Failed to update account details.'));
     } finally {
       setAccountSaving(false);
     }
