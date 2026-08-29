@@ -343,7 +343,7 @@ export const Availability: React.FC = () => {
                     <div>
                       <strong className="text-slate-900">{exc.reason || 'Blocked Window'}</strong>
                       <span className="block text-slate-400 text-[11px]">
-                        {new Date(exc.startDate).toUTCString()} $\rightarrow$ {new Date(exc.endDate).toUTCString()}
+                        {new Date(exc.startDate).toUTCString()} → {new Date(exc.endDate).toUTCString()}
                       </span>
                     </div>
 

@@ -125,11 +125,18 @@ export const StudentTimeline: React.FC = () => {
                                 <span className="text-xs font-medium text-slate-400">{date.toLocaleDateString()}</span>
                               </div>
                               <p className="text-slate-700 text-sm whitespace-pre-wrap">{note.content}</p>
-                              {note.isPrivate && (
-                                <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold uppercase">
-                                  Private Counselor Note
-                                </span>
-                              )}
+                              <div className="flex flex-wrap gap-1.5">
+                                {note.isDraft && (
+                                  <span className="inline-block px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px] font-bold uppercase">
+                                    Draft
+                                  </span>
+                                )}
+                                {note.isPrivate && (
+                                  <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold uppercase">
+                                    Private Counselor Note
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
