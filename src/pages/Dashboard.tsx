@@ -22,9 +22,23 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const now = new Date();
-  const upcomingSessions = sessions.filter(
-    (s) => new Date(s.startTime) > now && s.status === 'CONFIRMED'
-  );
+  /* A session that has already started is precisely when the counselor needs the
+     link, so "upcoming" cannot mean `startTime > now`: that made a session vanish
+     from this dashboard the moment it began, and a counselor five minutes late to
+     their own appointment had nowhere left to find the room. The student portal
+     already treats a call as live from 10 minutes before the start until 30
+     minutes after the end (`booking/MySessionsList.tsx`), so mirror that window
+     here - both sides of the same call have to agree about when the room is open. */
+  const JOIN_OPENS_MS = 10 * 60 * 1000;
+  const JOIN_CLOSES_MS = 30 * 60 * 1000;
+  const endOf = (s: { startTime: string; endTime?: string | null }) =>
+    s.endTime ? new Date(s.endTime).getTime() : new Date(s.startTime).getTime() + 60 * 60 * 1000;
+
+  const upcomingSessions = sessions
+    .filter((s) => s.status === 'CONFIRMED' && endOf(s) + JOIN_CLOSES_MS > now.getTime())
+    /* The endpoint returns newest first, which put a session two days out above
+       one happening right now. Soonest first is what this list is for. */
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   const completedCount = sessions.filter((s) => s.status === 'COMPLETED').length;
 
@@ -119,6 +133,13 @@ export const Dashboard: React.FC = () => {
           <div className="divide-y divide-slate-100">
             {upcomingSessions.slice(0, 5).map((session) => {
               const start = new Date(session.startTime);
+              /* The same clock rule the student side uses. Ungated, this button
+                 offered a live-looking link to a session two days out, which only
+                 ever opens an empty Jitsi room - the counselor equivalent of the
+                 stale Join the student portal already stopped showing. */
+              const canJoin =
+                now.getTime() >= start.getTime() - JOIN_OPENS_MS &&
+                now.getTime() <= endOf(session) + JOIN_CLOSES_MS;
               return (
                 <div key={session.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
                   <div className="flex items-center space-x-4">
@@ -136,15 +157,22 @@ export const Dashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  <a
-                    href={session.meetingLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center space-x-2"
-                  >
-                    <Video className="w-4 h-4" />
-                    <span>Launch Video Call</span>
-                  </a>
+                  {canJoin ? (
+                    <a
+                      href={session.meetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center space-x-2"
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>Launch Video Call</span>
+                    </a>
+                  ) : (
+                    <span className="px-4 py-2 text-slate-400 text-xs font-medium flex items-center space-x-2">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Link opens 10 minutes before</span>
+                    </span>
+                  )}
                 </div>
               );
             })}
