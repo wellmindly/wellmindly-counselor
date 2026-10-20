@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Login } from './pages/Login';
+import { ResetPassword } from './pages/ResetPassword';
 import { SetupProfile } from './pages/SetupProfile';
 import { Dashboard } from './pages/Dashboard';
 import { Availability } from './pages/Availability';
@@ -39,6 +40,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup-profile" element={<SetupProfile />} />
           <Route
             path="/"
