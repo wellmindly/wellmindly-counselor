@@ -4,8 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, Calendar, Video, Users, User, LogOut, HeartHandshake } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const location = useLocation();
+
+  const avatarUrl = profile?.avatarUrl || user?.counselorProfile?.avatarUrl;
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -53,15 +55,31 @@ export const Navbar: React.FC = () => {
           </nav>
 
           {/* Profile & Logout */}
-          <div className="flex items-center space-x-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-slate-800">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                ● Active
-              </span>
-            </div>
+          <div className="flex items-center space-x-3">
+            <Link
+              to="/profile"
+              className="flex items-center space-x-3 group p-1 rounded-xl hover:bg-slate-50 transition-colors"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={`${user?.firstName} ${user?.lastName}`}
+                  className="w-10 h-10 rounded-full object-cover border border-indigo-200 shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shrink-0">
+                  {user?.firstName?.[0] || 'C'}{user?.lastName?.[0] || ''}
+                </div>
+              )}
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                  ● Active
+                </span>
+              </div>
+            </Link>
             <button
               onClick={logout}
               className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors"

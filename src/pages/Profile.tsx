@@ -62,6 +62,7 @@ export const Profile: React.FC = () => {
         if (s3Url) {
           setAvatarUrl(s3Url);
           setMessage('Profile image uploaded to AWS S3 successfully!');
+          await refreshProfile();
         }
       } catch (err: any) {
         console.error('Avatar upload error:', err);
