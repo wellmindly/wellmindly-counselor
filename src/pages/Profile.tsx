@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, apiErrorMessage } from '../api';
-import { User as UserIcon, Save, CheckCircle2, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert, Upload, Camera } from 'lucide-react';
+import { User as UserIcon, Save, CheckCircle2, AlertCircle, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert, Upload, Camera } from 'lucide-react';
 
 export const Profile: React.FC = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -16,6 +16,7 @@ export const Profile: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Account settings states
   const [email, setEmail] = useState('');
@@ -46,6 +47,7 @@ export const Profile: React.FC = () => {
 
     setUploadingAvatar(true);
     setMessage(null);
+    setProfileError(null);
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -61,12 +63,14 @@ export const Profile: React.FC = () => {
         const s3Url = res.data?.data?.url || res.data?.url;
         if (s3Url) {
           setAvatarUrl(s3Url);
-          setMessage('Profile image uploaded to AWS S3 successfully!');
+          setMessage('Profile image updated successfully!');
+          setProfileError(null);
           await refreshProfile();
         }
       } catch (err: any) {
         console.error('Avatar upload error:', err);
-        setMessage(apiErrorMessage(err, 'Failed to upload image to AWS S3.'));
+        setProfileError(apiErrorMessage(err, 'Failed to upload image. Please try another photo.'));
+        setMessage(null);
       } finally {
         setUploadingAvatar(false);
       }
@@ -78,6 +82,7 @@ export const Profile: React.FC = () => {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
+    setProfileError(null);
 
     try {
       const res = await api.put('/counselors/me/profile', {
@@ -91,10 +96,12 @@ export const Profile: React.FC = () => {
 
       if (res.data.success) {
         setMessage('Profile updated successfully!');
+        setProfileError(null);
         refreshProfile();
       }
     } catch (err: any) {
-      setMessage(apiErrorMessage(err, 'Failed to update profile.'));
+      setProfileError(apiErrorMessage(err, 'Failed to update profile.'));
+      setMessage(null);
     } finally {
       setSaving(false);
     }
@@ -156,9 +163,16 @@ export const Profile: React.FC = () => {
         </p>
       </div>
 
+      {profileError && (
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-center space-x-2">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+          <span>{profileError}</span>
+        </div>
+      )}
+
       {message && (
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center space-x-2">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
           <span>{message}</span>
         </div>
       )}
