@@ -5,6 +5,16 @@ if (rawApiUrl.endsWith('/')) rawApiUrl = rawApiUrl.slice(0, -1);
 if (!rawApiUrl.endsWith('/api')) rawApiUrl += '/api';
 export const API_BASE = `${rawApiUrl}/v1`;
 
+export const resolveAvatarUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/api/')) {
+    const backendOrigin = rawApiUrl.replace(/\/api\/?$/, '');
+    return `${backendOrigin}${url}`;
+  }
+  return url;
+};
+
 export const api = axios.create({
   baseURL: API_BASE,
   headers: {

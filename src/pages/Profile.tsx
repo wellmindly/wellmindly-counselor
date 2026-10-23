@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api, apiErrorMessage } from '../api';
+import { api, apiErrorMessage, resolveAvatarUrl } from '../api';
 import { User as UserIcon, Save, CheckCircle2, AlertCircle, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert, Upload, Camera } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -11,6 +11,7 @@ export const Profile: React.FC = () => {
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [timezone, setTimezone] = useState('UTC');
 
   const [saving, setSaving] = useState(false);
@@ -251,8 +252,13 @@ export const Profile: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-5">
               <div className="relative group w-20 h-20 rounded-full border-2 border-indigo-200 overflow-hidden bg-indigo-50 flex items-center justify-center shrink-0 shadow-inner">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Counselor Profile" className="w-full h-full object-cover" />
+                {avatarUrl && !avatarLoadFailed ? (
+                  <img
+                    src={resolveAvatarUrl(avatarUrl)}
+                    alt="Counselor Profile"
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
                 ) : (
                   <UserIcon className="w-8 h-8 text-indigo-400" />
                 )}

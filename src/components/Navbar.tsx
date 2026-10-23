@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { resolveAvatarUrl } from '../api';
 import { LayoutDashboard, Calendar, Video, Users, User, LogOut, HeartHandshake } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, profile, logout } = useAuth();
   const location = useLocation();
+  const [imgFailed, setImgFailed] = useState(false);
 
-  const avatarUrl = profile?.avatarUrl || user?.counselorProfile?.avatarUrl;
+  const rawAvatarUrl = profile?.avatarUrl || user?.counselorProfile?.avatarUrl;
+  const avatarUrl = resolveAvatarUrl(rawAvatarUrl);
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -60,11 +63,12 @@ export const Navbar: React.FC = () => {
               to="/profile"
               className="flex items-center space-x-3 group p-1 rounded-xl hover:bg-slate-50 transition-colors"
             >
-              {avatarUrl ? (
+              {avatarUrl && !imgFailed ? (
                 <img
                   src={avatarUrl}
                   alt={`${user?.firstName} ${user?.lastName}`}
                   className="w-10 h-10 rounded-full object-cover border border-indigo-200 shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all shrink-0"
+                  onError={() => setImgFailed(true)}
                 />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-sm shrink-0">
