@@ -10,6 +10,8 @@ import { Availability } from './pages/Availability';
 import { Profile } from './pages/Profile';
 import { Sessions } from './pages/Sessions';
 import { StudentTimeline } from './pages/StudentTimeline';
+import { AnalyticsTracker } from './components/AnalyticsTracker';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, loading } = useAuth();
@@ -38,6 +40,8 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <AnalyticsTracker />
+        <CookieConsentBanner />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />

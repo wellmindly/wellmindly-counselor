@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { resolveAvatarUrl } from '../api';
-import { LayoutDashboard, Calendar, Video, Users, User, LogOut, HeartHandshake } from 'lucide-react';
+import { LayoutDashboard, Calendar, Video, Users, User, LogOut, HeartHandshake, Shield } from 'lucide-react';
+import { openConsentPreferences } from '../lib/analytics';
 
 export const Navbar: React.FC = () => {
   const { user, profile, logout } = useAuth();
@@ -57,7 +58,7 @@ export const Navbar: React.FC = () => {
             })}
           </nav>
 
-          {/* Profile & Logout */}
+          {/* Profile & Logout & Consent Preferences */}
           <div className="flex items-center space-x-3">
             <Link
               to="/profile"
@@ -85,8 +86,15 @@ export const Navbar: React.FC = () => {
               </div>
             </Link>
             <button
+              onClick={openConsentPreferences}
+              className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Cookie & Privacy Preferences"
+            >
+              <Shield className="w-5 h-5" />
+            </button>
+            <button
               onClick={logout}
-              className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors"
+              className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
               title="Logout"
             >
               <LogOut className="w-5 h-5" />
