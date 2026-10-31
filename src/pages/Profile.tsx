@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, apiErrorMessage, resolveAvatarUrl } from '../api';
+import { compressImageForUpload } from '../utils/imageCompressor';
 import { User as UserIcon, Save, CheckCircle2, AlertCircle, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert, Upload, Camera } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -42,41 +43,51 @@ export const Profile: React.FC = () => {
     }
   }, [profile, user]);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [avatarUrl]);
+
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 15 * 1024 * 1024) {
+      setProfileError('Image is too large (maximum 15MB). Please select a smaller photo.');
+      return;
+    }
+
     setUploadingAvatar(true);
     setMessage(null);
     setProfileError(null);
+    setAvatarLoadFailed(false);
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64Data = event.target?.result as string;
-      try {
-        const res = await api.post('/counselors/me/upload', {
-          fileName: file.name,
-          mimeType: file.type,
-          base64Data,
-          folder: 'avatars',
-        });
+    try {
+      // Compress and downscale on client before upload to prevent Nginx 413 (Content Too Large)
+      const compressed = await compressImageForUpload(file, 800, 0.85);
 
-        const s3Url = res.data?.data?.url || res.data?.url;
-        if (s3Url) {
-          setAvatarUrl(s3Url);
-          setMessage('Profile image updated successfully!');
-          setProfileError(null);
-          await refreshProfile();
-        }
-      } catch (err: any) {
-        console.error('Avatar upload error:', err);
-        setProfileError(apiErrorMessage(err, 'Failed to upload image. Please try another photo.'));
-        setMessage(null);
-      } finally {
-        setUploadingAvatar(false);
+      const res = await api.post('/counselors/me/upload', {
+        fileName: compressed.fileName,
+        mimeType: compressed.mimeType,
+        base64Data: compressed.base64Data,
+        folder: 'avatars',
+      });
+
+      const s3Url = res.data?.data?.url || res.data?.url;
+      if (s3Url) {
+        setAvatarUrl(s3Url);
+        setAvatarLoadFailed(false);
+        setMessage('Profile image updated successfully!');
+        setProfileError(null);
+        await refreshProfile();
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error('Avatar upload error:', err);
+      setProfileError(apiErrorMessage(err, 'Failed to upload image. Please try another photo.'));
+      setMessage(null);
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {

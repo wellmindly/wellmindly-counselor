@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api';
-import { HeartHandshake, AlertCircle } from 'lucide-react';
+import { api, resolveAvatarUrl } from '../api';
+import { compressImageForUpload } from '../utils/imageCompressor';
+import { HeartHandshake, AlertCircle, Camera, Upload, User as UserIcon } from 'lucide-react';
 
 export const SetupProfile: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -17,6 +18,9 @@ export const SetupProfile: React.FC = () => {
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +46,45 @@ export const SetupProfile: React.FC = () => {
       .finally(() => setLoading(false));
   }, [token]);
 
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      setError('Image is too large (maximum 15MB). Please select a smaller photo.');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setError(null);
+    setAvatarLoadFailed(false);
+
+    try {
+      // Compress and downscale on client before upload to prevent Nginx 413 (Content Too Large)
+      const compressed = await compressImageForUpload(file, 800, 0.85);
+
+      const res = await api.post('/counselors/setup-upload', {
+        token,
+        fileName: compressed.fileName,
+        mimeType: compressed.mimeType,
+        base64Data: compressed.base64Data,
+        folder: 'avatars',
+      });
+
+      const s3Url = res.data?.data?.url || res.data?.url;
+      if (s3Url) {
+        setAvatarUrl(s3Url);
+        setAvatarLoadFailed(false);
+      }
+    } catch (err: any) {
+      console.error('Avatar setup upload error:', err);
+      setError(err.response?.data?.error?.message || 'Failed to upload image. Please try another photo.');
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -56,6 +99,7 @@ export const SetupProfile: React.FC = () => {
         bio,
         phone,
         timezone,
+        avatarUrl: avatarUrl || undefined,
       });
 
       if (res.data.success) {
@@ -176,6 +220,64 @@ export const SetupProfile: React.FC = () => {
               <option value="Europe/London">Europe/London (GMT)</option>
               <option value="UTC">UTC Standard</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-800 mb-2 flex items-center space-x-2">
+              <Camera className="w-4 h-4 text-indigo-600" />
+              <span>Profile Picture (Optional)</span>
+            </label>
+
+            <div className="flex items-center space-x-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <div className="relative w-16 h-16 rounded-full border-2 border-indigo-200 overflow-hidden bg-indigo-50 flex items-center justify-center shrink-0 shadow-inner">
+                {avatarUrl && !avatarLoadFailed ? (
+                  <img
+                    src={resolveAvatarUrl(avatarUrl)}
+                    alt="Counselor Profile"
+                    className="w-full h-full object-cover"
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
+                ) : (
+                  <UserIcon className="w-7 h-7 text-indigo-400" />
+                )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
+                    <span className="text-[9px] text-white font-bold animate-pulse">Uploading...</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-1.5">
+                <div className="flex items-center space-x-2">
+                  <label
+                    htmlFor="setup-avatar-upload"
+                    className="cursor-pointer px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs rounded-lg shadow-sm transition-all flex items-center space-x-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
+                  </label>
+                  <input
+                    id="setup-avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarFileChange}
+                    className="hidden"
+                  />
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setAvatarUrl('')}
+                      className="px-2.5 py-1.5 text-slate-500 hover:text-red-600 font-medium text-xs rounded-lg border border-slate-200 hover:border-red-200 transition-all"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Upload JPG, PNG or WEBP (Max 10MB).
+                </p>
+              </div>
+            </div>
           </div>
 
           <div>

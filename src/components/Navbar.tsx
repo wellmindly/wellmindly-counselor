@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { resolveAvatarUrl } from '../api';
@@ -12,6 +12,10 @@ export const Navbar: React.FC = () => {
 
   const rawAvatarUrl = profile?.avatarUrl || user?.counselorProfile?.avatarUrl;
   const avatarUrl = resolveAvatarUrl(rawAvatarUrl);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [avatarUrl]);
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },

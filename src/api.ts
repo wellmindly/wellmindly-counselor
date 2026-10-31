@@ -7,12 +7,20 @@ export const API_BASE = `${rawApiUrl}/v1`;
 
 export const resolveAvatarUrl = (url?: string | null): string => {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.includes('.amazonaws.com/')) {
+    let key = url.split('.amazonaws.com/')[1]?.split('?')[0];
+    if (key?.startsWith('wellmindly-assets/')) {
+      key = key.replace(/^wellmindly-assets\//, '');
+    }
+    if (key) {
+      url = `/api/v1/counselors/assets/${key}`;
+    }
+  }
   if (url.startsWith('/api/')) {
     const backendOrigin = rawApiUrl.replace(/\/api\/?$/, '');
-    return `${backendOrigin}${url}`;
+    return encodeURI(`${backendOrigin}${url}`);
   }
-  return url;
+  return encodeURI(url);
 };
 
 export const api = axios.create({
