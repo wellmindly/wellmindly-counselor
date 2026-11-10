@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api';
+import { api, apiErrorMessage } from '../api';
 import { Users, FileText } from 'lucide-react';
 
 export const StudentTimeline: React.FC = () => {
@@ -7,26 +7,52 @@ export const StudentTimeline: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<{ student: any; sessions: any[]; notes: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
 
+  // Neither request had a catch: a failure left "Loading students..." on screen
+  // forever (setLoading sat inside .then), and an unhandled rejection in the console.
   useEffect(() => {
-    api.get('/counselors/me/sessions').then((res) => {
-      if (res.data.success) {
-        setSessions(res.data.data);
-        if (res.data.data.length > 0) {
-          setSelectedStudentId(res.data.data[0].student.id);
+    api
+      .get('/counselors/me/sessions')
+      .then((res) => {
+        if (res.data.success) {
+          setSessions(res.data.data);
+          const first = res.data.data.find((s: any) => s.student?.id);
+          if (first) {
+            setSelectedStudentId(first.student.id);
+          }
         }
-      }
-      setLoading(false);
-    });
+      })
+      .catch((err) => setLoadError(apiErrorMessage(err, 'Could not load your students. Please refresh to try again.')))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!selectedStudentId) return;
-    api.get(`/counselors/me/students/${selectedStudentId}/timeline`).then((res) => {
-      if (res.data.success) {
-        setTimeline(res.data.data);
-      }
-    });
+    let cancelled = false;
+    // Clear the previous student's record first, so a slow response never shows
+    // one student's clinical notes under another student's name.
+    setTimeline(null);
+    setTimelineError(null);
+    setTimelineLoading(true);
+    api
+      .get(`/counselors/me/students/${selectedStudentId}/timeline`)
+      .then((res) => {
+        if (!cancelled && res.data.success) {
+          setTimeline(res.data.data);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setTimelineError(apiErrorMessage(err, 'Could not load this student\'s history.'));
+      })
+      .finally(() => {
+        if (!cancelled) setTimelineLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedStudentId]);
 
   // Unique list of students counseled
@@ -52,6 +78,10 @@ export const StudentTimeline: React.FC = () => {
 
       {loading ? (
         <div className="p-8 text-center text-slate-500 text-sm">Loading students...</div>
+      ) : loadError ? (
+        <div className="p-8 text-center text-rose-700 bg-white rounded-2xl border border-rose-200 text-sm" role="alert">
+          {loadError}
+        </div>
       ) : students.length === 0 ? (
         <div className="p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200 text-sm">
           No student histories available yet.
@@ -90,15 +120,15 @@ export const StudentTimeline: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             {timeline ? (
               <>
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex items-center justify-between">
-                  <div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex items-center justify-between gap-4">
+                  <div className="min-w-0">
                     <h2 className="text-xl font-bold text-slate-900">
                       {timeline.student?.firstName} {timeline.student?.lastName}
                     </h2>
-                    <p className="text-slate-500 text-xs">{timeline.student?.email}</p>
+                    <p className="text-slate-500 text-xs truncate">{timeline.student?.email}</p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-semibold text-slate-400 block">Total Sessions</span>
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-semibold text-slate-500 block">Total Sessions</span>
                     <span className="text-2xl font-extrabold text-indigo-600">{timeline.sessions?.length || 0}</span>
                   </div>
                 </div>
@@ -120,11 +150,11 @@ export const StudentTimeline: React.FC = () => {
                           <div key={note.id} className="relative pl-8 space-y-1">
                             <div className="absolute left-1 top-1.5 w-5 h-5 rounded-full bg-indigo-600 border-4 border-white shadow-sm" />
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
-                              <div className="flex justify-between items-center">
-                                <h4 className="font-bold text-slate-900 text-sm">{note.title}</h4>
-                                <span className="text-xs font-medium text-slate-400">{date.toLocaleDateString()}</span>
+                              <div className="flex justify-between items-start gap-2">
+                                <h4 className="font-bold text-slate-900 text-sm break-words min-w-0">{note.title}</h4>
+                                <span className="text-xs font-medium text-slate-500 shrink-0">{date.toLocaleDateString()}</span>
                               </div>
-                              <p className="text-slate-700 text-sm whitespace-pre-wrap">{note.content}</p>
+                              <p className="text-slate-700 text-sm whitespace-pre-wrap break-words">{note.content}</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {note.isDraft && (
                                   <span className="inline-block px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px] font-bold uppercase">
@@ -145,6 +175,12 @@ export const StudentTimeline: React.FC = () => {
                   )}
                 </div>
               </>
+            ) : timelineError ? (
+              <div className="p-8 text-center text-rose-700 bg-white rounded-2xl border border-rose-200 text-sm" role="alert">
+                {timelineError}
+              </div>
+            ) : timelineLoading ? (
+              <div className="p-8 text-center text-slate-500 text-sm">Loading history...</div>
             ) : (
               <div className="p-8 text-center text-slate-500">Select a student to view timeline</div>
             )}

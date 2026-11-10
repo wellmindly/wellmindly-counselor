@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { isAxiosError } from 'axios';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { api, resolveAvatarUrl } from '../api';
-import { compressImageForUpload } from '../utils/imageCompressor';
+import { api, apiErrorMessage, resolveAvatarUrl } from '../api';
+import {
+  AVATAR_ACCEPT,
+  AVATAR_MAX_UPLOAD_BYTES,
+  avatarFileError,
+  base64ByteLength,
+  compressImageForUpload,
+} from '../utils/imageCompressor';
+import { detectBrowserTimeZone, timezoneOptionsFor } from '../utils/time';
 import { HeartHandshake, AlertCircle, Camera, Upload, User as UserIcon } from 'lucide-react';
 
 export const SetupProfile: React.FC = () => {
@@ -17,7 +25,7 @@ export const SetupProfile: React.FC = () => {
   const [specializations, setSpecializations] = useState('Anxiety, Depression, Academic Stress');
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
-  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+  const [timezone, setTimezone] = useState(detectBrowserTimeZone);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
@@ -41,7 +49,7 @@ export const SetupProfile: React.FC = () => {
         }
       })
       .catch((err) => {
-        setError(err.response?.data?.error?.message || 'Invalid or expired invitation token.');
+        setError(apiErrorMessage(err, 'Invalid or expired invitation token.'));
       })
       .finally(() => setLoading(false));
   }, [token]);
@@ -50,8 +58,12 @@ export const SetupProfile: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 15 * 1024 * 1024) {
-      setError('Image is too large (maximum 15MB). Please select a smaller photo.');
+    // Reject on the client what the server will reject anyway (SVG, PDF, HEIC...),
+    // and clear the input so picking the same file again still fires onChange.
+    const fileError = avatarFileError(file);
+    if (fileError) {
+      setError(fileError);
+      e.target.value = '';
       return;
     }
 
@@ -62,6 +74,9 @@ export const SetupProfile: React.FC = () => {
     try {
       // Compress and downscale on client before upload to prevent Nginx 413 (Content Too Large)
       const compressed = await compressImageForUpload(file, 800, 0.85);
+      if (base64ByteLength(compressed.base64Data) > AVATAR_MAX_UPLOAD_BYTES) {
+        throw new Error('Image is too large to upload (maximum 5 MB after resizing).');
+      }
 
       const res = await api.post('/counselors/setup-upload', {
         token,
@@ -78,7 +93,11 @@ export const SetupProfile: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Avatar setup upload error:', err);
-      setError(err.response?.data?.error?.message || 'Failed to upload image. Please try another photo.');
+      setError(
+        isAxiosError(err)
+          ? apiErrorMessage(err, 'Failed to upload image. Please try another photo.')
+          : (err instanceof Error && err.message) || 'Failed to upload image. Please try another photo.'
+      );
     } finally {
       setUploadingAvatar(false);
       e.target.value = '';
@@ -88,6 +107,12 @@ export const SetupProfile: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    // The server rejects anything shorter (400); say so before the round trip.
+    // minLength on the input covers most browsers, this covers the rest.
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
     setSubmitting(true);
 
     try {
@@ -95,7 +120,8 @@ export const SetupProfile: React.FC = () => {
         token,
         password,
         credentials,
-        specializations: specializations.split(',').map((s) => s.trim()),
+        // Drop blanks: an emptied field used to save [""] and show an empty tag to students.
+        specializations: specializations.split(',').map((s) => s.trim()).filter(Boolean),
         bio,
         phone,
         timezone,
@@ -107,7 +133,7 @@ export const SetupProfile: React.FC = () => {
         navigate('/');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Profile setup failed');
+      setError(apiErrorMessage(err, 'Profile setup failed'));
     } finally {
       setSubmitting(false);
     }
@@ -166,11 +192,17 @@ export const SetupProfile: React.FC = () => {
             <input
               type="password"
               required
+              minLength={8}
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Minimum 8 characters"
+              aria-describedby="setup-password-hint"
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
             />
+            <p id="setup-password-hint" className="text-xs text-slate-500 mt-1">
+              At least 8 characters.
+            </p>
           </div>
 
           <div>
@@ -214,11 +246,11 @@ export const SetupProfile: React.FC = () => {
               onChange={(e) => setTimezone(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none text-sm"
             >
-              <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-              <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-              <option value="America/New_York">America/New_York (EST)</option>
-              <option value="Europe/London">Europe/London (GMT)</option>
-              <option value="UTC">UTC Standard</option>
+              {timezoneOptionsFor(timezone).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -259,7 +291,7 @@ export const SetupProfile: React.FC = () => {
                   <input
                     id="setup-avatar-upload"
                     type="file"
-                    accept="image/*"
+                    accept={AVATAR_ACCEPT}
                     onChange={handleAvatarFileChange}
                     className="hidden"
                   />
@@ -274,7 +306,7 @@ export const SetupProfile: React.FC = () => {
                   )}
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Upload JPG, PNG or WEBP (Max 10MB).
+                  JPG, PNG, WebP or GIF, up to 15 MB (resized automatically).
                 </p>
               </div>
             </div>

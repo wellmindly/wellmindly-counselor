@@ -17,12 +17,13 @@ export const Navbar: React.FC = () => {
     setImgFailed(false);
   }, [avatarUrl]);
 
+  // shortLabel feeds the phone tab row, where five full labels cannot fit.
   const navItems = [
-    { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Availability & Calendar', path: '/availability', icon: Calendar },
-    { label: 'Sessions', path: '/sessions', icon: Video },
-    { label: 'Student History', path: '/students', icon: Users },
-    { label: 'My Profile', path: '/profile', icon: User },
+    { label: 'Dashboard', shortLabel: 'Home', path: '/', icon: LayoutDashboard },
+    { label: 'Availability & Calendar', shortLabel: 'Availability', path: '/availability', icon: Calendar },
+    { label: 'Sessions', shortLabel: 'Sessions', path: '/sessions', icon: Video },
+    { label: 'Student History', shortLabel: 'Students', path: '/students', icon: Users },
+    { label: 'My Profile', shortLabel: 'Profile', path: '/profile', icon: User },
   ];
 
   return (
@@ -41,7 +42,7 @@ export const Navbar: React.FC = () => {
           </Link>
 
           {/* Nav Items */}
-          <nav className="hidden md:flex space-x-1">
+          <nav className="hidden lg:flex space-x-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -63,7 +64,7 @@ export const Navbar: React.FC = () => {
           </nav>
 
           {/* Profile & Logout & Consent Preferences */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1 sm:space-x-3">
             <Link
               to="/profile"
               className="flex items-center space-x-3 group p-1 rounded-xl hover:bg-slate-50 transition-colors"
@@ -91,14 +92,16 @@ export const Navbar: React.FC = () => {
             </Link>
             <button
               onClick={openConsentPreferences}
-              className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="Cookie & Privacy Preferences"
+              className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
               title="Cookie & Privacy Preferences"
             >
               <Shield className="w-5 h-5" />
             </button>
             <button
               onClick={logout}
-              className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label="Logout"
+              className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
               title="Logout"
             >
               <LogOut className="w-5 h-5" />
@@ -106,6 +109,30 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Phone and tablet navigation. The desktop links above used to be the only
+          nav and were `hidden md:flex`: on a phone the only ways off the dashboard
+          were its two buttons (Student History had no entry point at all), and at
+          768-1023px the five long labels overflowed the header sideways. */}
+      <nav className="lg:hidden border-t border-slate-100 grid grid-cols-5" aria-label="Primary">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex flex-col items-center justify-center min-h-14 py-1.5 text-[11px] font-medium transition-colors ${
+                isActive ? 'text-indigo-700 font-semibold bg-indigo-50' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Icon className={`w-5 h-5 mb-0.5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+              <span className="truncate max-w-full px-0.5">{item.shortLabel}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </header>
   );
 };

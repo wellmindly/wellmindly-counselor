@@ -32,7 +32,14 @@ export const Login: React.FC = () => {
         navigate('/');
       }
     } catch (err: any) {
-      setError(apiErrorMessage(err, 'Login failed. Please check credentials.'));
+      // No response means the request never reached the API (offline, server
+      // down). Blaming the credentials there sent counselors off to reset a
+      // password that was fine.
+      setError(
+        err?.response
+          ? apiErrorMessage(err, 'Login failed. Please check credentials.')
+          : 'Could not reach the server. Check your connection and try again.'
+      );
     } finally {
       setLoading(false);
     }

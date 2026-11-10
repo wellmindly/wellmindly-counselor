@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../api';
+import { api, apiErrorMessage } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { formatZonedClock, isUtcZone, resolveTimeZone } from '../utils/time';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -23,6 +25,9 @@ interface Exception {
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]; // 8 AM to 6 PM (1-hour slots)
 
 export const Availability: React.FC = () => {
+  const { user } = useAuth();
+  const timeZone = resolveTimeZone(user?.timezone);
+  const showLocal = !isUtcZone(timeZone);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [exceptions, setExceptions] = useState<Exception[]>([]);
@@ -37,6 +42,9 @@ export const Availability: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to fetch exceptions:', err);
+      // Silently swallowing this left every hour reading "Available", so a
+      // counselor could believe blocked time was open (or block it twice).
+      setError(apiErrorMessage(err, 'Could not load your blocked hours. Refresh before making changes.'));
     }
   };
 
@@ -91,8 +99,20 @@ export const Availability: React.FC = () => {
   };
 
   const toggleBlockHour = async (hour: number) => {
+    // Each tap is a create/delete round trip; a second tap before the first
+    // returned used to create a duplicate block for the same hour.
+    if (saving) return;
     setError(null);
     const existing = findExceptionForHour(hour);
+    // An hour can be covered by a longer block (a whole blocked day). Unblocking
+    // deletes that whole exception, so say so instead of silently freeing the day.
+    if (
+      existing &&
+      (existing.isFullDay || new Date(existing.endDate).getTime() - new Date(existing.startDate).getTime() > 60 * 60 * 1000) &&
+      !window.confirm(`This hour is part of "${existing.reason || 'a longer block'}". Remove that whole block?`)
+    ) {
+      return;
+    }
     setSaving(true);
 
     if (existing) {
@@ -101,7 +121,7 @@ export const Availability: React.FC = () => {
         await api.delete(`/counselors/me/exceptions/${existing.id}`);
         await fetchExceptions();
       } catch (err) {
-        setError('Failed to unblock hour. Please try again.');
+        setError(apiErrorMessage(err, 'Failed to unblock hour. Please try again.'));
       } finally {
         setSaving(false);
       }
@@ -118,7 +138,7 @@ export const Availability: React.FC = () => {
         });
         await fetchExceptions();
       } catch (err) {
-        setError('Failed to block hour. Please try again.');
+        setError(apiErrorMessage(err, 'Failed to block hour. Please try again.'));
       } finally {
         setSaving(false);
       }
@@ -126,6 +146,7 @@ export const Availability: React.FC = () => {
   };
 
   const blockFullDay = async () => {
+    if (saving) return;
     setError(null);
     setSaving(true);
     const startDate = new Date(Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0)).toISOString();
@@ -140,7 +161,7 @@ export const Availability: React.FC = () => {
       });
       await fetchExceptions();
     } catch (err) {
-      setError('Failed to block full day. Please try again.');
+      setError(apiErrorMessage(err, 'Failed to block full day. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -153,7 +174,7 @@ export const Availability: React.FC = () => {
       await api.delete(`/counselors/me/exceptions/${id}`);
       await fetchExceptions();
     } catch (err) {
-      setError('Failed to remove blockout. Please try again.');
+      setError(apiErrorMessage(err, 'Failed to remove blockout. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -193,13 +214,15 @@ export const Availability: React.FC = () => {
             <div className="flex space-x-1">
               <button
                 onClick={handlePrevMonth}
-                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600"
+                aria-label="Previous month"
+                className="w-11 h-11 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={handleNextMonth}
-                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600"
+                aria-label="Next month"
+                className="w-11 h-11 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -268,7 +291,7 @@ export const Availability: React.FC = () => {
             <button
               onClick={blockFullDay}
               disabled={saving}
-              className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition-all border border-rose-200 flex items-center space-x-1.5"
+              className="min-h-11 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition-all border border-rose-200 flex items-center space-x-1.5 disabled:opacity-50"
             >
               <Lock className="w-3.5 h-3.5" />
               <span>Block Entire Day</span>
@@ -278,7 +301,8 @@ export const Availability: React.FC = () => {
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center space-x-3 text-xs text-slate-600">
             <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
             <span>
-              Sessions are fixed at 1 hour. Default window is <strong>8:00 AM to 6:00 PM UTC</strong>. Click any slot to toggle blocking hours.
+              Sessions are fixed at 1 hour. Default window is <strong>8:00 AM to 6:00 PM UTC</strong>
+              {showLocal && <> (your local time is shown under each slot, in {timeZone})</>}. Tap any slot to toggle blocking hours.
             </span>
           </div>
 
@@ -292,13 +316,27 @@ export const Availability: React.FC = () => {
                 return `${h12}:00 ${ampm}`;
               };
 
-              const slotLabel = `${formatHour(hour)} - ${formatHour(hour + 1)}`;
+              const slotLabel = `${formatHour(hour)} - ${formatHour(hour + 1)} UTC`;
+              const slotStartUtc = new Date(
+                Date.UTC(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), hour, 0)
+              );
+              const localLabel = showLocal
+                ? `${formatZonedClock(slotStartUtc, timeZone)} - ${formatZonedClock(
+                    new Date(slotStartUtc.getTime() + 60 * 60 * 1000),
+                    timeZone
+                  )}`
+                : null;
 
+              // A real <button>: the card was a clickable <div> wrapping a second
+              // <button> (nested interactive content, unreachable by keyboard).
               return (
-                <div
+                <button
+                  type="button"
                   key={hour}
                   onClick={() => toggleBlockHour(hour)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center ${
+                  disabled={saving}
+                  aria-pressed={blocked}
+                  className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center gap-3 disabled:cursor-wait ${
                     blocked
                       ? 'bg-rose-50/80 border-rose-200 text-rose-800'
                       : 'bg-white border-slate-200 hover:border-indigo-400 hover:shadow-sm text-slate-800'
@@ -312,20 +350,21 @@ export const Availability: React.FC = () => {
                     )}
                     <div>
                       <p className="font-bold text-sm">{slotLabel}</p>
+                      {localLabel && <p className="text-[11px] text-slate-500">{localLabel}</p>}
                       <span className={`text-[11px] font-semibold ${blocked ? 'text-rose-600' : 'text-emerald-600'}`}>
                         {blocked ? 'Blocked' : 'Available (1 Hr)'}
                       </span>
                     </div>
                   </div>
 
-                  <button
-                    className={`px-3 py-1 rounded-lg font-bold text-xs ${
+                  <span
+                    className={`px-3 py-1 rounded-lg font-bold text-xs shrink-0 ${
                       blocked ? 'bg-rose-200/80 text-rose-900' : 'bg-slate-100 text-slate-700'
                     }`}
                   >
                     {blocked ? 'Unblock' : 'Block Slot'}
-                  </button>
-                </div>
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -340,16 +379,18 @@ export const Availability: React.FC = () => {
                     key={exc.id}
                     className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs text-slate-700"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <strong className="text-slate-900">{exc.reason || 'Blocked Window'}</strong>
-                      <span className="block text-slate-400 text-[11px]">
+                      <span className="block text-slate-500 text-[11px] break-words">
                         {new Date(exc.startDate).toUTCString()} → {new Date(exc.endDate).toUTCString()}
                       </span>
                     </div>
 
                     <button
                       onClick={() => removeException(exc.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
+                      disabled={saving}
+                      aria-label={`Remove ${exc.reason || 'blocked window'}`}
+                      className="w-11 h-11 shrink-0 flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

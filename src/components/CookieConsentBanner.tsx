@@ -113,7 +113,7 @@ export function CookieConsentBanner() {
                 <button
                   type="button"
                   onClick={() => setShowModal(true)}
-                  className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 cursor-pointer"
+                  className="min-h-11 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 cursor-pointer"
                 >
                   <span className="flex items-center gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -123,14 +123,14 @@ export function CookieConsentBanner() {
                 <button
                   type="button"
                   onClick={handleRejectAll}
-                  className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 cursor-pointer"
+                  className="min-h-11 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 cursor-pointer"
                 >
                   Reject Optional
                 </button>
                 <button
                   type="button"
                   onClick={handleAcceptAll}
-                  className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 cursor-pointer"
+                  className="min-h-11 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 cursor-pointer"
                 >
                   Accept All
                 </button>
@@ -163,7 +163,7 @@ export function CookieConsentBanner() {
                 type="button"
                 onClick={() => setShowModal(false)}
                 aria-label="Close preferences"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -221,14 +221,14 @@ export function CookieConsentBanner() {
                 <button
                   type="button"
                   onClick={handleRejectAll}
-                  className="rounded-xl border border-slate-200 px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 cursor-pointer"
+                  className="min-h-11 rounded-xl border border-slate-200 px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 cursor-pointer"
                 >
                   Reject Optional
                 </button>
                 <button
                   type="button"
                   onClick={handleSavePreferences}
-                  className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 cursor-pointer"
+                  className="min-h-11 rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 cursor-pointer"
                 >
                   Save Choices
                 </button>

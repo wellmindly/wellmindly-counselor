@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api';
+import { api, SESSION_EXPIRED_EVENT } from '../api';
 
 interface User {
   id: string;
@@ -64,6 +64,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setProfile(null);
   };
+
+  // The api interceptor has already dropped the dead token; clear the in-memory
+  // copy too so ProtectedLayout sends the counselor back to /login.
+  useEffect(() => {
+    const onExpired = () => logout();
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ token, user, profile, login, logout, refreshProfile, loading }}>

@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { isAxiosError } from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { api, apiErrorMessage, resolveAvatarUrl } from '../api';
-import { compressImageForUpload } from '../utils/imageCompressor';
+import {
+  AVATAR_ACCEPT,
+  AVATAR_MAX_UPLOAD_BYTES,
+  avatarFileError,
+  base64ByteLength,
+  compressImageForUpload,
+} from '../utils/imageCompressor';
+import { canonicalTimeZone, timezoneOptionsFor } from '../utils/time';
 import { User as UserIcon, Save, CheckCircle2, AlertCircle, Globe, Phone, Award, Tag, Lock, Mail, ShieldAlert, Upload, Camera } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -36,7 +44,7 @@ export const Profile: React.FC = () => {
       setBio(profile.bio || '');
       setPhone(profile.phone || '');
       setAvatarUrl(profile.avatarUrl || '');
-      setTimezone(profile.user?.timezone || 'UTC');
+      setTimezone(canonicalTimeZone(profile.user?.timezone));
     }
     if (user?.email) {
       setEmail(user.email);
@@ -51,8 +59,12 @@ export const Profile: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 15 * 1024 * 1024) {
-      setProfileError('Image is too large (maximum 15MB). Please select a smaller photo.');
+    // Reject on the client what the server will reject anyway (SVG, PDF, HEIC...),
+    // and clear the input so picking the same file again still fires onChange.
+    const fileError = avatarFileError(file);
+    if (fileError) {
+      setProfileError(fileError);
+      e.target.value = '';
       return;
     }
 
@@ -64,6 +76,9 @@ export const Profile: React.FC = () => {
     try {
       // Compress and downscale on client before upload to prevent Nginx 413 (Content Too Large)
       const compressed = await compressImageForUpload(file, 800, 0.85);
+      if (base64ByteLength(compressed.base64Data) > AVATAR_MAX_UPLOAD_BYTES) {
+        throw new Error('Image is too large to upload (maximum 5 MB after resizing).');
+      }
 
       const res = await api.post('/counselors/me/upload', {
         fileName: compressed.fileName,
@@ -82,7 +97,13 @@ export const Profile: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Avatar upload error:', err);
-      setProfileError(apiErrorMessage(err, 'Failed to upload image. Please try another photo.'));
+      // Server message first ("Only PNG, JPEG, WebP or GIF images can be uploaded",
+      // "Image is too large (maximum 5 MB)"), then our own pre-upload checks.
+      setProfileError(
+        isAxiosError(err)
+          ? apiErrorMessage(err, 'Failed to upload image. Please try another photo.')
+          : (err instanceof Error && err.message) || 'Failed to upload image. Please try another photo.'
+      );
       setMessage(null);
     } finally {
       setUploadingAvatar(false);
@@ -99,7 +120,8 @@ export const Profile: React.FC = () => {
     try {
       const res = await api.put('/counselors/me/profile', {
         credentials,
-        specializations: specializations.split(',').map((s) => s.trim()),
+        // Drop blanks: an emptied field used to save [""] and show an empty tag to students.
+        specializations: specializations.split(',').map((s) => s.trim()).filter(Boolean),
         bio,
         phone,
         avatarUrl,
@@ -247,11 +269,11 @@ export const Profile: React.FC = () => {
               onChange={(e) => setTimezone(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             >
-              <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-              <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-              <option value="America/New_York">America/New_York (EST)</option>
-              <option value="Europe/London">Europe/London (GMT)</option>
-              <option value="UTC">UTC Standard</option>
+              {timezoneOptionsFor(timezone).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -292,7 +314,7 @@ export const Profile: React.FC = () => {
                   <input
                     id="counselor-avatar-upload"
                     type="file"
-                    accept="image/*"
+                    accept={AVATAR_ACCEPT}
                     onChange={handleAvatarFileChange}
                     className="hidden"
                   />
@@ -307,7 +329,7 @@ export const Profile: React.FC = () => {
                   )}
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Upload JPG, PNG or WEBP (Max 5MB). Professional high-resolution portrait recommended.
+                  JPG, PNG, WebP or GIF, up to 15 MB (resized automatically). Professional high-resolution portrait recommended.
                 </p>
                 {avatarUrl && (
                   <input

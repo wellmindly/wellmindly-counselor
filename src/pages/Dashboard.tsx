@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api';
+import { api, apiErrorMessage } from '../api';
+import { formatSessionTime, resolveTimeZone } from '../utils/time';
 import { Video, Calendar, Users, ArrowRight, Clock, CheckCircle2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -8,6 +9,7 @@ export const Dashboard: React.FC = () => {
   const { user, profile } = useAuth();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -17,7 +19,12 @@ export const Dashboard: React.FC = () => {
           setSessions(res.data.data);
         }
       })
-      .catch((err) => console.error('Failed to fetch sessions:', err))
+      .catch((err) => {
+        console.error('Failed to fetch sessions:', err);
+        // Without this the card fell through to "No upcoming sessions", which a
+        // counselor reads as a free day rather than a failed request.
+        setLoadError(apiErrorMessage(err, 'Could not load your sessions. Please refresh to try again.'));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -34,8 +41,13 @@ export const Dashboard: React.FC = () => {
   const endOf = (s: { startTime: string; endTime?: string | null }) =>
     s.endTime ? new Date(s.endTime).getTime() : new Date(s.startTime).getTime() + 60 * 60 * 1000;
 
+  // PENDING and IN_PROGRESS are live bookings too (the Sessions page already lets
+  // the counselor join them); counting only CONFIRMED hid them from this list.
+  const UPCOMING_STATUSES = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'];
+  const timeZone = resolveTimeZone(user?.timezone);
+
   const upcomingSessions = sessions
-    .filter((s) => s.status === 'CONFIRMED' && endOf(s) + JOIN_CLOSES_MS > now.getTime())
+    .filter((s) => UPCOMING_STATUSES.includes(s.status) && endOf(s) + JOIN_CLOSES_MS > now.getTime())
     /* The endpoint returns newest first, which put a session two days out above
        one happening right now. Soonest first is what this list is for. */
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
@@ -54,7 +66,7 @@ export const Dashboard: React.FC = () => {
             Welcome back, {user?.firstName}!
           </h1>
           <p className="text-indigo-100 text-sm mt-1 max-w-xl">
-            You have <strong className="text-white">{upcomingSessions.length}</strong> upcoming session(s) scheduled. Timezone: <span className="underline">{user?.timezone || 'UTC'}</span>
+            You have <strong className="text-white">{upcomingSessions.length}</strong> upcoming session(s) scheduled. Times shown in <span className="underline">{timeZone}</span>{timeZone !== 'UTC' && ' (UTC alongside)'}
           </p>
         </div>
         <Link
@@ -111,12 +123,12 @@ export const Dashboard: React.FC = () => {
 
       {/* Upcoming Sessions List */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center gap-3">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Upcoming Appointments</h2>
             <p className="text-slate-500 text-xs mt-0.5">Direct video meeting links and student details</p>
           </div>
-          <Link to="/sessions" className="text-indigo-600 text-sm font-semibold hover:underline flex items-center space-x-1">
+          <Link to="/sessions" className="text-indigo-600 text-sm font-semibold hover:underline flex items-center space-x-1 whitespace-nowrap shrink-0 min-h-11">
             <span>View All</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
@@ -124,6 +136,8 @@ export const Dashboard: React.FC = () => {
 
         {loading ? (
           <div className="p-8 text-center text-slate-500 text-sm">Loading sessions...</div>
+        ) : loadError ? (
+          <div className="p-8 text-center text-rose-700 text-sm" role="alert">{loadError}</div>
         ) : upcomingSessions.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-sm">
             <Calendar className="w-12 h-12 mx-auto text-slate-300 mb-3" />
@@ -152,7 +166,7 @@ export const Dashboard: React.FC = () => {
                       </h4>
                       <p className="text-slate-500 text-xs flex items-center space-x-2 mt-0.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{start.toUTCString()}</span>
+                        <span>{formatSessionTime(session.startTime, timeZone)}</span>
                       </p>
                     </div>
                   </div>
